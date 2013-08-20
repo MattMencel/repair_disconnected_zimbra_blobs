@@ -1,11 +1,10 @@
-#!/opt/ruby/bin/ruby
+#!/usr/bin/env ruby
 
 require "rubygems"
 require "awesome_print"
 require "logger"
 require "mysql"
 require "trollop"
-
 
 def pick_db(dbname)
   begin
@@ -38,7 +37,7 @@ end
 def update_entry(db, mbox_id, msg_id, mod_content, vol_id)
   begin
     $log.warn("UPDATE mail_item SET volume_id=#{vol_id} WHERE mailbox_id=#{mbox_id} AND id=#{msg_id} AND mod_content=#{mod_content}")
-    res = db.query("UPDATE mail_item SET volume_id=#{vol_id} WHERE mailbox_id=#{mbox_id} AND id=#{msg_id} AND mod_content=#{mod_content}") if !opts[:test]
+    res = db.query("UPDATE mail_item SET volume_id=#{vol_id} WHERE mailbox_id=#{mbox_id} AND id=#{msg_id} AND mod_content=#{mod_content}") if !$test
   rescue Mysql::Error => e
 	$log.fatal("DATABASE ERROR!")
     puts e.errno
@@ -52,7 +51,7 @@ end
 def update_dumpster_entry(db, mbox_id, msg_id, mod_content, vol_id)
   begin
     $log.warn("UPDATE mail_item_dumpster SET volume_id=#{vol_id} WHERE mailbox_id=#{mbox_id} AND id=#{msg_id} AND mod_content=#{mod_content}")
-    res = db.query("UPDATE mail_item_dumpster SET volume_id=#{vol_id} WHERE mailbox_id=#{mbox_id} AND id=#{msg_id} AND mod_content=#{mod_content}") if !opts[:test]
+    res = db.query("UPDATE mail_item_dumpster SET volume_id=#{vol_id} WHERE mailbox_id=#{mbox_id} AND id=#{msg_id} AND mod_content=#{mod_content}") if !$test
   rescue Mysql::Error => e
 	$log.fatal("DATABASE ERROR!")
     puts e.errno
@@ -79,9 +78,13 @@ opts = Trollop::options do
 end
 
 Trollop::die :path, "must exist" if opts[:path] == nil
+
+unless File.directory?("/opt/zimbra/backup/repair_logs")
+  Dir.mkdir("/opt/zimbra/backup/repair_logs")
+end
 $log = Logger.new("/opt/zimbra/backup/repair_logs/repair_blobs-#{Time.now}.txt")
 $log.level = Logger::INFO
-
+$test = true if opts[:test]
 zmvolume = `zmvolume -l`.split("compressed")
 vol_hash = Hash.new
 zmvolume.each do |entry|
@@ -100,10 +103,10 @@ end
 if opts[:account] == nil
   account = nil
 else
-  if opts[:account].include?("@test.com")
+  if opts[:account].include?("@test.edu")
     account = opts[:account]
   else
-    account = opts[:account] + "@test.com"
+    account = opts[:account] + "@test.edu"
   end
   db = pick_db("zimbra")
   res = db.query("SELECT id FROM mailbox WHERE comment='#{account}';")
@@ -123,16 +126,18 @@ if !File.exists?(complete_file)
   File.new(complete_file, "w")
 end
 
-root_paths = ['0','1','2']
+root_paths = ['0','1','2','3']
 
 mailbox_ids = Array.new
 
 root_paths.each do |p|
   base_path = "#{path}/#{p}"
+  next if !Dir.exists?(base_path)
   #ap base_path
   mailbox_ids = Dir.entries(base_path)
   mailbox_ids.each do |id|
     # HAVE WE PROCESED THIS ID ALREADY?
+	#ap id
 	found = File.readlines(complete_file).select { |line| line[/^#{id}\n/] } 
 	next if found.include?("#{id}\n")
     base_path = "#{path}/#{p}/#{id}/msg"
