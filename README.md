@@ -13,7 +13,7 @@ Options:
 
 - Must be run as the Zimbra user.
 - Must zmsetvars first.  The script will prompt with the correct command you need to run.
-- Must set your mail domain in one part of the script.  Grep it for '@test.com' to see where.
+- Must set your mail domain in one part of the script.  Grep it for '@test.edu' to see where.
 
 
 BACK STORY:  We had a SAN failure in which both controllers went offline, thus
